@@ -8,8 +8,6 @@ class Plow7Env(gym.Env):
     def __init__(self):
         self.t_max = 300 #30s at 10fps
 
-    def send(self, action, reset=False):
-
 
     def _step(self, action):
         state = self.receive()
