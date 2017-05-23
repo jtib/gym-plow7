@@ -13,10 +13,10 @@ class Plow7Env(Argos3Env):
     No steering wheel.
     """
     def __init__(self):
-        super.__init__(width=128, height=128, batchmode=False)
+        super().__init__(width=128, height=128, batchmode=False)
         self.t_max = 300 #30s at 10fps
         self.t0 = 0
-        obs_dim = 39 # TODO: understand and correct that
+        obs_dim = 39 # S. says this is useless and to be removed. Will clone then.
         self.observation_space = spaces.Box(-np.ones([obs_dim]), np.ones([obs_dim]))
 
     def process_raw_state(self, raw_state):
@@ -66,6 +66,7 @@ class Plow7Env(Argos3Env):
 def test_plow7_env():
     import logging
     import gym_argos3
+    import gym_plow7
     logger.setLevel(logging.DEBUG)
 
     env = gym.make('plow7-v0')
