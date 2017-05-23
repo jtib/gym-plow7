@@ -1,7 +1,8 @@
 import gym
-from gym import spaces
+from gym import error, spaces, utils
+from gym.utils import seeding
 
-from gym_argos3.argos3_env import Argos3Env, logger
+from gym_argos3.envs.argos3_env import Argos3Env, logger
 
 import numpy as np
 
@@ -30,30 +31,52 @@ class Plow7Env(Argos3Env):
         return np.concatenate(raw_state[:], av_speeds)
 
     def _reset(self):
-        self.speed = 0
         # learning everything at the same time
         # not realistic (compared to real life), but easier to program
         # not elegant either
+        self.all_speeds = np.zeros((self.t_max, 8))
         self.t = 0
+        state, frame = super()._reset()
+        state = self.process_raw_state(state)
+        return state
 
     def _step(self, action):
-        state = self.receive()
+        self.send(action)
+        state, frame = self.receive()
         state = self.process_raw_state(state)
 
-        position = state[0] # all car positions
-        pos_diff = state[1] # distance from init. pos
-        speed = state[2] # all car speeds
-        av_speed = state[3] # average speed (of all cars/each?)
-        proximities = state[4] # proximity sensor readings
+        speeds = state[:8] # all fb positions
+        dist_dep = state[8:16] # distance from init. pos
+        proximities = state[16:24] # all fb proxim. readings
+        av_speeds = state[24:] # average speeds (for each fb)
 
-        done = self.t > self.t_max or all(np.abs(position - pos_diff) > 7) # done is good
-        reward = av_speed - sum(proximities>0.8) # might need to normalize av_speed; speed good, collisions bad
+        done = self.t > self.t_max or all(dist_dep > 7) # done is good
+        reward = av_speeds - sum(proximities>0.8) # might need to normalize av_speed; speed good, collisions bad
         if done:
             reward += 10
 
         self.t += 1
 
-        return reward, done
+        return state, reward, done, {}
 
     def _render(self, mode='human', close=False):
         pass
+
+
+def test_plow7_env():
+    import logging
+    import gym_argos3
+    logger.setLevel(logging.DEBUG)
+
+    env = gym.make('plow7-v0')
+    env.unwrapped.conf(loglevel='debug')
+    env.reset()
+    for i in range(10):
+        print(i)
+        env.step([.0, 1.0])
+
+        if (i+1)%5 == 0:
+            env.reset()
+
+if __name__ == '__main__':
+    test_plow7_env()
