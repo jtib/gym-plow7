@@ -14,10 +14,10 @@ class Plow7Env(Argos3Env):
     """
     def __init__(self):
         super().__init__(width=128, height=128, batchmode=False)
-        self.t_max = 300 #30s at 10fps
+        self.t_max = 30 * 10 #30s at 10fps
         self.t0 = 0
-        obs_dim = 39 # S. says this is useless and to be removed. Will clone then.
-        self.observation_space = spaces.Box(-np.ones([obs_dim]), np.ones([obs_dim]))
+        self.obs_len = 4 * 8
+        self.observation_space = spaces.Box(-np.ones([self.obs_len]), np.ones([self.obs_len])) # will have to normalize observations
 
     def process_raw_state(self, raw_state):
         logger.debug(f"Footbot speed = {str(raw_state[:8])}")
