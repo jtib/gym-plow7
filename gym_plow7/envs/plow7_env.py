@@ -10,7 +10,7 @@ class Plow7Env(Argos3Env):
     """
     OpenAI gym environment for a specific crossroads setting in ARGoS3.
     action = [throttle]
-    No steering wheel.
+    No steering, the footbots move in a straight line.
     """
     def __init__(self):
         super().__init__(width=128, height=128, batchmode=False)
@@ -18,6 +18,7 @@ class Plow7Env(Argos3Env):
         self.t0 = 0
         self.obs_len = 4 * 8
         self.observation_space = spaces.Box(-np.ones([self.obs_len]), np.ones([self.obs_len])) # will have to normalize observations
+        self.av_speeds = np.zeros(8);
 
     def process_raw_state(self, raw_state):
         logger.debug(f"Footbot speed = {str(raw_state[:8])}")
@@ -47,11 +48,14 @@ class Plow7Env(Argos3Env):
 
         speeds = state[:8] # all fb positions
         dist_dep = state[8:16] # distance from init. pos
-        proximities = state[16:24] # all fb proxim. readings
-        av_speeds = state[24:] # average speeds (for each fb)
+        proximities = state[16:400] # all fb proxim. readings
+        proximities = np.array(proximities)
+        proximites.reshape((8,24,2)) # which fb, which sensor, value/angle
+        prox = np.sum(proximities, axis=1)
+        self.av_speeds = (self.av_speeds*t + speeds)/(t+1)
 
         done = self.t > self.t_max or all(dist_dep > 7) # done is good
-        reward = av_speeds - sum(proximities>0.8) # might need to normalize av_speed; speed good, collisions bad
+        reward = self.av_speeds - sum(prox[:,0]>.95) # might need to normalize these; speed good, collisions bad
         if done:
             reward += 10
 
