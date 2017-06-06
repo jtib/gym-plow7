@@ -13,7 +13,7 @@ class Plow7Env(Argos3Env):
     No steering, the footbots move in a straight line.
     """
     def __init__(self):
-        super().__init__(width=128, height=128, batchmode=False)
+        super().__init__(width=128, height=128, batchmode=True)
         self.t_max = 30 * 10 #30s at 10fps
         self.t0 = 0
         self.obs_len = 4 * 8
@@ -27,9 +27,8 @@ class Plow7Env(Argos3Env):
         logger.debug(f"Collisions detected = {sum(np.array(raw_state[16:])>.8)}")
 
         self.all_speeds[self.t] = raw_state[:8]
-        av_speeds = np.mean(self.all_speeds, 0)
 
-        return np.concatenate(raw_state[:], av_speeds)
+        return raw_state
 
     def _reset(self):
         # learning everything at the same time
@@ -50,9 +49,10 @@ class Plow7Env(Argos3Env):
         dist_dep = state[8:16] # distance from init. pos
         proximities = state[16:400] # all fb proxim. readings
         proximities = np.array(proximities)
-        proximites.reshape((8,24,2)) # which fb, which sensor, value/angle
+        proximities = proximities.reshape((8,24,2)) # which fb, which sensor, value/angle
+        logger.debug(f'proximities shape = {proximities.shape}')
         prox = np.sum(proximities, axis=1)
-        self.av_speeds = (self.av_speeds*t + speeds)/(t+1)
+        self.av_speeds = (self.av_speeds*self.t + speeds)/(self.t+1)
 
         done = self.t > self.t_max or all(dist_dep > 7) # done is good
         reward = self.av_speeds - sum(prox[:,0]>.95) # might need to normalize these; speed good, collisions bad
@@ -78,7 +78,7 @@ def test_plow7_env():
     env.reset()
     for i in range(10):
         print(i)
-        env.step([.0, 1.0])
+        env.step([.5])
 
         if (i+1)%5 == 0:
             env.reset()
