@@ -14,9 +14,9 @@ class Plow7Env(Argos3Env):
     """
     def __init__(self):
         super().__init__(width=128, height=128, batchmode=True)
-        self.t_max = 30 * 10 #30s at 10fps
+        self.t_max = 3000 * 10 #30s at 10fps
         self.t0 = 0
-        self.obs_len = 4 * 8
+        self.obs_len = 8 * (1 + 2*24 + 1)
         self.observation_space = spaces.Box(-np.ones([self.obs_len]), np.ones([self.obs_len])) # will have to normalize observations
         self.av_speeds = np.zeros(8);
 
@@ -55,9 +55,9 @@ class Plow7Env(Argos3Env):
         self.av_speeds = (self.av_speeds*self.t + speeds)/(self.t+1)
 
         done = self.t > self.t_max or all(dist_dep > 7) # done is good
-        reward = self.av_speeds - sum(prox[:,0]>.95) # might need to normalize these; speed good, collisions bad
+        reward = sum(self.av_speeds - 10*sum(prox[:,0]>.95)) # might need to normalize these; speed good, collisions bad
         if done:
-            reward += 10
+            reward += 100
 
         self.t += 1
 
