@@ -14,19 +14,24 @@ class Plow7Env(Argos3Env):
     """
     def __init__(self):
         super().__init__(width=128, height=128, batchmode=True)
-        self.t_max = 3000 * 10 #30s at 10fps
+        self.t_max = 3600 * 10 #3600s at 10fps
         self.t0 = 0
-        self.obs_len = 8 * (1 + 2*24 + 1)
+        logger.debug("Env made")
+
+    def setNbFb(self, number_footbots):
+        self.nbFb = number_footbots;
+        self.obs_len = number_footbots * (1 + 2*24 + 1)
         self.observation_space = spaces.Box(-np.ones([self.obs_len]), np.ones([self.obs_len])) # will have to normalize observations
-        self.av_speeds = np.zeros(8);
+        self.av_speeds = np.zeros(number_footbots);
+        super().setRobotsNumber(number_footbots);
 
     def process_raw_state(self, raw_state):
-        logger.debug(f"Footbot speed = {str(raw_state[:8])}")
-        logger.debug(f"Distance to departure = {str(raw_state[8:16])}")
-        logger.debug(f"Proximity sensor = {str(raw_state[16:])}")
-        logger.debug(f"Collisions detected = {sum(np.array(raw_state[16:])>.8)}")
+        logger.debug(f"Proximity sensor = {str(raw_state[:48*self.nbFb])}")
+        logger.debug(f"Footbot speed = {str(raw_state[48*self.nbFb:49*self.nbFb])}")
+        logger.debug(f"Distance to departure = {str(raw_state[49*self.nbFb:])}")
+        logger.debug(f"Collisions detected = {sum(np.array(raw_state[:48*self.nbFb])>.95)}")
 
-        self.all_speeds[self.t] = raw_state[:8]
+        self.all_speeds[self.t] = raw_state[48*self.nbFb:49*self.nbFb]
 
         return raw_state
 
@@ -34,7 +39,7 @@ class Plow7Env(Argos3Env):
         # learning everything at the same time
         # not realistic (compared to real life), but easier to program
         # not elegant either
-        self.all_speeds = np.zeros((self.t_max, 8))
+        self.all_speeds = np.zeros((self.t_max, self.nbFb))
         self.t = 0
         state, frame = super()._reset()
         state = self.process_raw_state(state)
@@ -45,16 +50,16 @@ class Plow7Env(Argos3Env):
         state, frame = self.receive()
         state = self.process_raw_state(state)
 
-        speeds = state[:8] # all fb positions
-        dist_dep = state[8:16] # distance from init. pos
-        proximities = state[16:400] # all fb proxim. readings
+        speeds = state[48*self.nbFb:49*self.nbFb] # all fb positions
+        dist_dep = state[49*self.nbFb:] # distance from init. pos
+        proximities = state[:48*self.nbFb] # all fb proxim. readings
         proximities = np.array(proximities)
-        proximities = proximities.reshape((8,24,2)) # which fb, which sensor, value/angle
+        proximities = proximities.reshape((self.nbFb,24,2)) # which fb, which sensor, value/angle
         logger.debug(f'proximities shape = {proximities.shape}')
         prox = np.sum(proximities, axis=1)
         self.av_speeds = (self.av_speeds*self.t + speeds)/(self.t+1)
 
-        done = self.t > self.t_max or all(dist_dep > 7) # done is good
+        done = all(dist_dep > 7) # done is good
         reward = sum(self.av_speeds - 10*sum(prox[:,0]>.95)) # might need to normalize these; speed good, collisions bad
         if done:
             reward += 100
