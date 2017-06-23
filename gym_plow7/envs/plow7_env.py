@@ -16,14 +16,23 @@ class Plow7Env(Argos3Env):
         super().__init__(width=128, height=128, batchmode=True)
         self.t_max = 3600 * 10 #3600s at 10fps
         self.t0 = 0
+        logger.setLevel(logging.DEBUG)
         logger.debug("Env made")
 
     def setNbFb(self, number_footbots):
-        self.nbFb = number_footbots;
+        self.nbFb = number_footbots
         self.obs_len = number_footbots * (1 + 2*24 + 1)
         self.observation_space = spaces.Box(-np.ones([self.obs_len]), np.ones([self.obs_len])) # will have to normalize observations
-        self.av_speeds = np.zeros(number_footbots);
-        super().setRobotsNumber(number_footbots);
+        self.av_speeds = np.zeros(number_footbots)
+        super().setRobotsNumber(number_footbots)
+
+    def setMinSpeed(self, min_speed):
+        self.min_speed = min_speed
+        self.action_space.low += min_speed
+
+    def setMaxSpeed(self, max_speed):
+        self.max_speed = max_speed
+        self.action_space.high *= max_speed
 
     def process_raw_state(self, raw_state):
         logger.debug(f"Proximity sensor = {str(raw_state[:48*self.nbFb])}")
@@ -46,6 +55,7 @@ class Plow7Env(Argos3Env):
         return state
 
     def _step(self, action):
+        logger.debug(f"Action sent: {action}")
         self.send(action)
         state, frame = self.receive()
         state = self.process_raw_state(state)
