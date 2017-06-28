@@ -13,26 +13,18 @@ class Plow7Env(Argos3Env):
     No steering, the footbots move in a straight line.
     """
     def __init__(self):
-        super().__init__(width=128, height=128, batchmode=True)
+        super().__init__(width=128, height=128)
         self.t_max = 3600 * 10 #3600s at 10fps
         self.t0 = 0
-        logger.setLevel(logging.DEBUG)
-        logger.debug("Env made")
+        logger.info("Env made")
 
-    def setNbFb(self, number_footbots):
+    def setParams(self, number_footbots, min_speed=2, max_speed=25, dt="all"):
         self.nbFb = number_footbots
         self.obs_len = number_footbots * (1 + 2*24 + 1)
         self.observation_space = spaces.Box(-np.ones([self.obs_len]), np.ones([self.obs_len])) # will have to normalize observations
         self.av_speeds = np.zeros(number_footbots)
-        super().setRobotsNumber(number_footbots)
-
-    def setMinSpeed(self, min_speed):
-        self.min_speed = min_speed
-        self.action_space.low += min_speed
-
-    def setMaxSpeed(self, max_speed):
-        self.max_speed = max_speed
-        self.action_space.high *= max_speed
+        self.data_type = dt
+        super().setParams(number_footbots, min_speed, max_speed, dt)
 
     def process_raw_state(self, raw_state):
         logger.debug(f"Proximity sensor = {str(raw_state[:48*self.nbFb])}")
@@ -45,9 +37,6 @@ class Plow7Env(Argos3Env):
         return raw_state
 
     def _reset(self):
-        # learning everything at the same time
-        # not realistic (compared to real life), but easier to program
-        # not elegant either
         self.all_speeds = np.zeros((self.t_max, self.nbFb))
         self.t = 0
         state, frame = super()._reset()
@@ -55,12 +44,13 @@ class Plow7Env(Argos3Env):
         return state
 
     def _step(self, action):
-        logger.debug(f"Action sent: {action}")
+        action = self.action_space.low + (action+np.ones(self.nbFb))*(self.action_space.high[0]-self.action_space.low[0])/2
         self.send(action)
         state, frame = self.receive()
         state = self.process_raw_state(state)
 
         speeds = state[48*self.nbFb:49*self.nbFb] # all fb positions
+        print(f"Speeds: {speeds}")
         dist_dep = state[49*self.nbFb:] # distance from init. pos
         proximities = state[:48*self.nbFb] # all fb proxim. readings
         proximities = np.array(proximities)
@@ -70,7 +60,7 @@ class Plow7Env(Argos3Env):
         self.av_speeds = (self.av_speeds*self.t + speeds)/(self.t+1)
 
         done = all(dist_dep > 7) # done is good
-        reward = sum(self.av_speeds - 10*sum(prox[:,0]>.95)) # might need to normalize these; speed good, collisions bad
+        reward = sum(self.av_speeds - 5*sum(prox[:,0]>.95) + 5*dist_dep) # might need to normalize these; speed good, collisions bad
         if done:
             reward += 100
 
