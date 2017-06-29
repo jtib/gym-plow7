@@ -18,7 +18,7 @@ class Plow7Env(Argos3Env):
         self.t0 = 0
         logger.info("Env made")
 
-    def setParams(self, number_footbots, min_speed=2, max_speed=25, dt="all"):
+    def setParams(self, number_footbots, min_speed=2, max_speed=25, dt="numerical"):
         self.nbFb = number_footbots
         self.obs_len = number_footbots * (1 + 2*24 + 1)
         self.observation_space = spaces.Box(-np.ones([self.obs_len]), np.ones([self.obs_len])) # will have to normalize observations
