@@ -27,11 +27,6 @@ class Plow7Env(Argos3Env):
         super().setParams(number_footbots, min_speed, max_speed, dt)
 
     def process_raw_state(self, raw_state):
-        logger.debug(f"Proximity sensor = {str(raw_state[:48*self.nbFb])}")
-        logger.debug(f"Footbot speed = {str(raw_state[48*self.nbFb:49*self.nbFb])}")
-        logger.debug(f"Distance to departure = {str(raw_state[49*self.nbFb:])}")
-        logger.debug(f"Collisions detected = {sum(np.array(raw_state[:48*self.nbFb])>.95)}")
-
         self.all_speeds[self.t] = raw_state[48*self.nbFb:49*self.nbFb]
 
         return raw_state
@@ -50,17 +45,16 @@ class Plow7Env(Argos3Env):
         state = self.process_raw_state(state)
 
         speeds = state[48*self.nbFb:49*self.nbFb] # all fb positions
-        print(f"Speeds: {speeds}")
+        print(f"Episode: {self.t}  Speeds: {speeds}")
         dist_dep = state[49*self.nbFb:] # distance from init. pos
         proximities = state[:48*self.nbFb] # all fb proxim. readings
         proximities = np.array(proximities)
         proximities = proximities.reshape((self.nbFb,24,2)) # which fb, which sensor, value/angle
-        logger.debug(f'proximities shape = {proximities.shape}')
         prox = np.sum(proximities, axis=1)
         self.av_speeds = (self.av_speeds*self.t + speeds)/(self.t+1)
 
-        done = all(dist_dep > 7) # done is good
-        reward = sum(self.av_speeds - 5*sum(prox[:,0]>.95) + 5*dist_dep) # might need to normalize these; speed good, collisions bad
+        done = all(dist_dep > 7)
+        reward = sum(self.av_speeds - 1000*sum(prox[:,0]>.95) + 5*dist_dep)
         if done:
             reward += 100
 
