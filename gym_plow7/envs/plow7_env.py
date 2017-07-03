@@ -16,6 +16,7 @@ class Plow7Env(Argos3Env):
         super().__init__(width=128, height=128)
         self.t_max = 3600 * 10 #3600s at 10fps
         self.t0 = 0
+        self.t = 0
         logger.info("Env made")
 
     def setParams(self, number_footbots, min_speed=2, max_speed=25, dt="numerical"):
@@ -45,7 +46,7 @@ class Plow7Env(Argos3Env):
         state = self.process_raw_state(state)
 
         speeds = state[48*self.nbFb:49*self.nbFb] # all fb positions
-        print(f"Episode: {self.t}  Speeds: {speeds}")
+        print(f"Speeds: {speeds}")
         dist_dep = state[49*self.nbFb:] # distance from init. pos
         proximities = state[:48*self.nbFb] # all fb proxim. readings
         proximities = np.array(proximities)
@@ -56,7 +57,7 @@ class Plow7Env(Argos3Env):
         done = all(dist_dep > 7)
         reward = sum(self.av_speeds - 1000*sum(prox[:,0]>.95) + 5*dist_dep)
         if done:
-            reward += 100
+            reward += 1000
 
         self.t += 1
 
