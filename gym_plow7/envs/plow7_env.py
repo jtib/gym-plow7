@@ -16,6 +16,7 @@ class Plow7Env(Argos3Env):
         super().__init__(width=128, height=128)
         self.t_max = 3600 * 10 #3600s at 10fps
         self.t0 = 0
+        self.t = 0
         logger.info("Env made")
 
     def setParams(self, number_footbots, min_speed=2, max_speed=25, dt="numerical"):
@@ -24,6 +25,7 @@ class Plow7Env(Argos3Env):
         self.observation_space = spaces.Box(-np.ones([self.obs_len]), np.ones([self.obs_len])) # will have to normalize observations
         self.av_speeds = np.zeros(number_footbots)
         self.data_type = dt
+        self.all_speeds = np.zeros((self.t_max, self.nbFb))
         super().setParams(number_footbots, min_speed, max_speed, dt)
 
     def process_raw_state(self, raw_state):
@@ -32,10 +34,13 @@ class Plow7Env(Argos3Env):
         return raw_state
 
     def _reset(self):
-        self.all_speeds = np.zeros((self.t_max, self.nbFb))
-        self.t = 0
+        """ Reconnects to the simulator if necessary.
+        This does not reset the state of the simulator.
+        This is for online learning.
+        """
         state, frame = super()._reset()
         state = self.process_raw_state(state)
+        print("state reset")
         return state
 
     def _step(self, action):
@@ -56,7 +61,7 @@ class Plow7Env(Argos3Env):
         done = all(dist_dep > 7)
         reward = sum(self.av_speeds - 1000*sum(prox[:,0]>.95) + 5*dist_dep)
         if done:
-            reward += 100
+            reward += 1000
 
         self.t += 1
 
