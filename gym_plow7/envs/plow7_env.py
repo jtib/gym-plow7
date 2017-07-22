@@ -40,21 +40,28 @@ class Plow7Env(Argos3Env):
         """
         state, frame = super()._reset()
         state = self.process_raw_state(state)
-        print("state reset")
         return state
 
     def _step(self, action):
         action = self.action_space.low + (action+np.ones(self.nbFb))*(self.action_space.high[0]-self.action_space.low[0])/2
+        for a in action:
+            if a < self.action_space.low[0]:
+                a = self.action_space.low[0]
+            if a > self.action_space.high[0]:
+                a = self.action_space.high
         self.send(action)
         state, frame = self.receive()
         state = self.process_raw_state(state)
 
         speeds = state[48*self.nbFb:49*self.nbFb] # all fb positions
-        print(f"Episode: {self.t}  Speeds: {speeds}")
         dist_dep = state[49*self.nbFb:] # distance from init. pos
         proximities = state[:48*self.nbFb] # all fb proxim. readings
         proximities = np.array(proximities)
         proximities = proximities.reshape((self.nbFb,24,2)) # which fb, which sensor, value/angle
+        if self.t % 50 == 0:
+            print(f"Episode: {self.t}  Speeds: {speeds}")
+            print(f"Distances: {dist_dep}")
+            print(f"Proximities: {proximities}")
         prox = np.sum(proximities, axis=1)
         self.av_speeds = (self.av_speeds*self.t + speeds)/(self.t+1)
 
